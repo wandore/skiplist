@@ -147,7 +147,7 @@ func (s *SkipList) Delete(score float64) *Node {
 	e = e.forward[0]
 
 	// 权值不存在
-	if e == nil || e.score != score {
+	if e == nil || e.Score != score {
 		return nil
 	}
 
