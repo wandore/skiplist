@@ -1,6 +1,9 @@
 package skiplist
 
-import "math/rand"
+import (
+	"math/rand"
+	"sync"
+)
 
 const (
 	maxLevel int     = 16   // 跳表最大深度
@@ -42,28 +45,43 @@ func (e *Node) Next() *Node {
 
 // 跳表
 type SkipList struct {
-	header *Node // 虚拟头节点 dummy，不计入长度/深度
-	len    int   // 跳表长度
-	level  int   // 跳表深度
+	header *Node         // 虚拟头节点 dummy，不计入长度/深度
+	len    int           // 跳表长度
+	level  int           // 跳表深度
+	mu     *sync.RWMutex // 读写锁
 }
 
 // 构造跳表
 func New() *SkipList {
-	return &SkipList{header: &Node{forward: make([]*Node, maxLevel)}}
+	return &SkipList{
+		header: &Node{
+			forward: make([]*Node, maxLevel),
+		},
+		mu: &sync.RWMutex{},
+	}
 }
 
 // 获取跳表长度
 func (s *SkipList) Size() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.len
 }
 
 // 获取跳表第一个节点
 func (s *SkipList) Front() *Node {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	return s.header.forward[0]
 }
 
 // 根据权值查找节点
 func (s *SkipList) Search(score float64) (*Node, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	// 从 dummy 节点开始遍历
 	e := s.header
 	// 从高往低查找
@@ -87,6 +105,9 @@ func (s *SkipList) Search(score float64) (*Node, bool) {
 
 // 插入节点
 func (s *SkipList) Insert(score float64, value interface{}) *Node {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	update := make([]*Node, maxLevel)
 
 	// 获取插入位置
@@ -117,7 +138,7 @@ func (s *SkipList) Insert(score float64, value interface{}) *Node {
 
 	// 构造节点
 	node := newElement(score, value, level)
-	
+
 	// 将节点插入跳表，从低往高每一层的前置节点->node->前置节点的后一节点
 	for i := 0; i < level; i++ {
 		node.forward[i] = update[i].forward[i]
@@ -132,6 +153,9 @@ func (s *SkipList) Insert(score float64, value interface{}) *Node {
 
 // 删除节点
 func (s *SkipList) Delete(score float64) *Node {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	update := make([]*Node, maxLevel)
 
 	// 获取插入位置
